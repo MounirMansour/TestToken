@@ -2,12 +2,45 @@
 
 pragma solidity 0.8.13;
 
+
+library SafeMath {
+    function mul(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0) {
+            return 0;
+        }
+        uint256 c = a * b;
+        assert(c / a == b);
+        return c;
+    }
+
+    function div(uint256 a, uint256 b) internal pure returns (uint256) {
+        // assert(b > 0); // Solidity automatically throws when dividing by 0
+        uint256 c = a / b;
+        // assert(a == b * c + a % b); // There is no case in which this doesn't hold
+        return c;
+    }
+
+    function sub(uint256 a, uint256 b) internal pure returns (uint256) {
+        assert(b <= a);
+        return a - b;
+    }
+
+    function add(uint256 a, uint256 b) internal pure returns (uint256) {
+        uint256 c = a + b;
+        assert(c >= a);
+        return c;
+    }
+}
+
+
 contract Test {
+    using SafeMath for uint;
+    
     address public admin;
     string private _name = "TestToken";
     string private _symbol = "TETO";
-    uint256 private _totalSupply  = 10000 * 10 ** 18;
-    uint256 private MAXSUPPLY = 100000 * 10 **18;
+    uint256 private _totalSupply  = 100 ;
+    uint256 private MAXSUPPLY = 1000 ;
 
 
     event Transfer(address indexed from, address indexed to, uint256 vaue);
@@ -22,28 +55,49 @@ contract Test {
     }
 
     function transfer(address to, uint256 value) public returns (bool){
-        require (_balances[msg.sender]>= value) ;
-        _balances[msg.sender] -= value ;
-        _balances[to] += value;
+        require (_balances[msg.sender] >= value ) ;
+        require (_allowances[msg.sender][msg.sender] >= value ) ;
+        _balances[msg.sender] =_balances[msg.sender].sub(value) ;
+        _balances[to] =_balances[to].add(value);
         emit Transfer (msg.sender,to,value);
         return true;
     }
 
      function transferFrom(address from,address to, uint256 value) public returns (bool){
         require (_balances[from]>= value && _allowances[from][msg.sender] >= value) ;
-        _allowances[from][msg.sender] -=value;
-        _balances[from] -= value ;
-        _balances[to] += value;
+        _allowances[from][msg.sender] =_allowances[from][msg.sender].sub(value);
+        _balances[from] =_balances[from].sub(value) ;
+        _balances[to] =_balances[to].add(value);
         emit Transfer (msg.sender,to,value);
         return true;
     }
 
     function approve (address spender, uint256 value) public returns (bool){
         require (spender != msg.sender);
+        require (_balances[spender] >= value , "the value is greater than balance of spender");
         _allowances [msg.sender][spender] = value;
         emit Approval(msg.sender,spender,value);
         return true;
     }
+
+    function increaseApproval (address spender, uint addedValue) public returns (bool) {
+        require (_balances[spender] >= _allowances[msg.sender][spender].add(addedValue));
+        _allowances[msg.sender][spender] = _allowances[msg.sender][spender].add(addedValue);
+    emit Approval(msg.sender, spender, _allowances[msg.sender][spender]);
+        return true;
+    }
+
+    function decreaseApproval (address spender, uint subtractedValue) public returns (bool) {
+        uint oldValue = _allowances[msg.sender][spender];
+        if (subtractedValue > oldValue) {
+            _allowances[msg.sender][spender] = 0;
+        } else {
+            _allowances[msg.sender][spender] = oldValue.sub(subtractedValue);
+        }
+       emit Approval(msg.sender, spender, _allowances[msg.sender][spender]);
+        return true;
+    }
+    
 
     function allowance(address owner, address spender)public view returns (uint256){
         return _allowances[owner][spender];
@@ -71,18 +125,17 @@ contract Test {
 
     function mint(address  to, uint amount) external{
         require (msg.sender == admin,"only admin");
-        require (amount + _totalSupply <= MAXSUPPLY, "You reach the maximum supply");
-        _balances [msg.sender] +=amount;
-        _totalSupply += amount;
+        require (amount.add(_totalSupply) <= MAXSUPPLY, "You reach the maximum supply");
+        _balances [msg.sender] =_balances [msg.sender].add(amount);
+        _totalSupply =_totalSupply.add(amount);
         emit Transfer (address(0),to, amount);
         }
 
         function burn (uint amount) external {
-            require (_balances[msg.sender] >= amount, "burn amount exceeds balance");
-        _balances [msg.sender] -=amount;
-        _totalSupply -= amount;
+        require (_balances[msg.sender] >= amount, "burn amount exceeds balance");
+        _balances [msg.sender] =_balances [msg.sender].sub(amount);
+        _totalSupply =_totalSupply.sub(amount);
         emit Transfer (msg.sender , address(0), amount);
     }
-
 
 } 
